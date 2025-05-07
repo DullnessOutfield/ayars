@@ -37,6 +37,23 @@ impl KismetDevice {
             metadata,
         })
     }
+
+    fn probed_ssids(&self) -> Vec<String> {
+
+        if let Value::Object(probe_map) = &self.metadata["dot11.device"]["dot11.device.probed_ssid_map"] {
+            probe_map
+                .values()
+                .filter_map(|entry| {
+                    entry["dot11.probedssid.ssid"]
+                        .as_str()
+                        .filter(|ssid| !ssid.is_empty())
+                        .map(String::from)
+                })
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
 }
 
 fn query_sqlite(db_path: &str, device_types: Option<Vec<String>>) -> Result<Vec<KismetDevice>> {
@@ -101,10 +118,13 @@ fn main() {
                 let path = entry.path().to_str().unwrap_or_default();
                 println!("Processing: {}", path);
                 
-                match get_access_points(path) {
+                match get_stas(path) {
                     Ok(devices) => {
                         for device in devices {
-                            println!("  {}", device.metadata );
+                            let probes = device.probed_ssids();
+                            for probe in probes {
+                                println!("{probe}")
+                            }
                         }
                     }
                     Err(e) => eprintln!("Error processing {}: {}", path, e),
